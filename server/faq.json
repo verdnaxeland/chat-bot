@@ -1,0 +1,14 @@
+[
+  {
+    "question": "What is this chatbot?",
+    "answer": "I am a chatbot created to help you with your questions."
+  },
+  {
+    "question": "How do I use the chatbot?",
+    "answer": "Simply type your question in the message box and press enter."
+  },
+  {
+    "question": "What can you do?",
+    "answer": "I can answer your questions, capture your data, and have a conversation with you."
+  }
+]
