@@ -1,5 +1,6 @@
 const express = require('express');
 const fs = require('fs');
+const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 const db = require('./db');
@@ -8,7 +9,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 app.use(express.json());
 
 // Serve static files from the client folder
-app.use(express.static('client'));
+app.use(express.static(path.join(__dirname, '../client')));
 
 // Load FAQ data
 const faqData = JSON.parse(fs.readFileSync('./server/faq.json', 'utf-8'));
