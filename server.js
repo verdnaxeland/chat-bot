@@ -112,6 +112,16 @@ function formatDirectMessage(row) {
   };
 }
 
+function formatProfile(user, profileRow = {}) {
+  return {
+    displayName: profileRow.display_name || user.username,
+    aboutMe: profileRow.about_me || '',
+    statusText: profileRow.status_text || 'Disponível',
+    bannerColor: profileRow.banner_color || '#1f2125',
+    accentColor: profileRow.accent_color || '#5865f2'
+  };
+}
+
 function generateInviteCode() {
   return crypto.randomBytes(5).toString('hex');
 }
@@ -277,6 +287,112 @@ async function ensureConversationMember(userId, conversationId) {
   return rows[0] || null;
 }
 
+async function fetchServerMembers(serverId) {
+  const pool = await poolPromise;
+  const [rows] = await pool.execute(
+    `SELECT sm.server_id, sm.role, sm.joined_at,
+            u.id, u.username, u.email, u.avatar_url, u.created_at,
+            up.display_name, up.about_me, up.status_text, up.banner_color, up.accent_color
+     FROM server_members sm
+     INNER JOIN users u ON u.id = sm.user_id
+     LEFT JOIN user_profiles up ON up.user_id = u.id
+     WHERE sm.server_id = ?
+     ORDER BY CASE sm.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, u.username ASC`,
+    [serverId]
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    role: row.role,
+    joinedAt: row.joined_at,
+    user: formatUser(row),
+    profile: formatProfile(formatUser(row), row)
+  }));
+}
+
+async function fetchUserProfile(viewerId, targetUserId) {
+  const pool = await poolPromise;
+  const [userRows] = await pool.execute(
+    `SELECT id, username, email, avatar_url, created_at
+     FROM users
+     WHERE id = ?`,
+    [targetUserId]
+  );
+
+  if (!userRows.length) {
+    return null;
+  }
+
+  const user = formatUser(userRows[0]);
+
+  if (viewerId !== targetUserId) {
+    const [sharedServers] = await pool.execute(
+      `SELECT 1
+       FROM server_members sm_viewer
+       INNER JOIN server_members sm_target ON sm_target.server_id = sm_viewer.server_id
+       WHERE sm_viewer.user_id = ? AND sm_target.user_id = ?
+       LIMIT 1`,
+      [viewerId, targetUserId]
+    );
+
+    const [sharedDm] = await pool.execute(
+      `SELECT 1
+       FROM direct_participants dp_viewer
+       INNER JOIN direct_participants dp_target ON dp_target.conversation_id = dp_viewer.conversation_id
+       WHERE dp_viewer.user_id = ? AND dp_target.user_id = ?
+       LIMIT 1`,
+      [viewerId, targetUserId]
+    );
+
+    const [friendRows] = await pool.execute(
+      `SELECT 1
+       FROM friend_requests
+       WHERE ((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?))
+         AND status = 'accepted'
+       LIMIT 1`,
+      [viewerId, targetUserId, targetUserId, viewerId]
+    );
+
+    if (!sharedServers.length && !sharedDm.length && !friendRows.length) {
+      return { restricted: true };
+    }
+  }
+
+  const [profileRows] = await pool.execute(
+    `SELECT display_name, about_me, status_text, banner_color, accent_color
+     FROM user_profiles
+     WHERE user_id = ?`,
+    [targetUserId]
+  );
+
+  const profile = formatProfile(user, profileRows[0]);
+
+  const [badgeRows] = await pool.execute(
+    `SELECT badge_key, awarded_at
+     FROM user_badges
+     WHERE user_id = ?
+     ORDER BY awarded_at ASC`,
+    [targetUserId]
+  );
+
+  const [mutualServers] = await pool.execute(
+    `SELECT s.id, s.name
+     FROM server_members sm_viewer
+     INNER JOIN server_members sm_target ON sm_target.server_id = sm_viewer.server_id
+     INNER JOIN servers s ON s.id = sm_viewer.server_id
+     WHERE sm_viewer.user_id = ? AND sm_target.user_id = ?
+     ORDER BY s.name ASC`,
+    [viewerId, targetUserId]
+  );
+
+  return {
+    user,
+    profile,
+    badges: badgeRows.map((row) => ({ key: row.badge_key, awardedAt: row.awarded_at })),
+    mutualServers: mutualServers.map((row) => ({ id: row.id, name: row.name }))
+  };
+}
+
 async function buildUserContext(userId) {
   const pool = await poolPromise;
   const [userRows] = await pool.execute(
@@ -386,21 +502,41 @@ app.post(
 
     const hash = await bcrypt.hash(password, 10);
 
+    const connection = await pool.getConnection();
+
     try {
-      const [result] = await pool.execute(
+      await connection.beginTransaction();
+
+      const [result] = await connection.execute(
         `INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)`,
         [username, email.toLowerCase(), hash]
       );
+
+      await connection.execute(
+        `INSERT INTO user_profiles (user_id, display_name, status_text, accent_color)
+         VALUES (?, ?, ?, '#5865f2')`,
+        [result.insertId, username, 'Disponível']
+      );
+
+      await connection.execute(
+        `INSERT INTO user_badges (user_id, badge_key) VALUES (?, ?)`,
+        [result.insertId, 'member_since']
+      );
+
+      await connection.commit();
 
       const token = signToken(result.insertId);
       const context = await buildUserContext(result.insertId);
 
       res.status(201).json({ token, ...context });
     } catch (error) {
+      await connection.rollback();
       if (error.code === 'ER_DUP_ENTRY') {
         return res.status(409).json({ error: 'Nome de usuário ou e-mail já em uso' });
       }
       throw error;
+    } finally {
+      connection.release();
     }
   })
 );
@@ -530,6 +666,27 @@ app.get(
   })
 );
 
+app.get(
+  '/api/servers/:serverId/members',
+  authenticateRequest,
+  asyncHandler(async (req, res) => {
+    const serverId = Number(req.params.serverId);
+
+    if (!Number.isInteger(serverId) || serverId <= 0) {
+      return res.status(400).json({ error: 'Servidor inválido' });
+    }
+
+    const membership = await ensureServerMember(req.user.id, serverId);
+
+    if (!membership) {
+      return res.status(403).json({ error: 'Acesso negado a este servidor' });
+    }
+
+    const members = await fetchServerMembers(serverId);
+    res.json(members);
+  })
+);
+
 app.post(
   '/api/servers/:serverId/channels',
   authenticateRequest,
@@ -575,6 +732,30 @@ app.post(
       }
       throw error;
     }
+  })
+);
+
+app.get(
+  '/api/users/:userId',
+  authenticateRequest,
+  asyncHandler(async (req, res) => {
+    const userId = Number(req.params.userId);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'Usuário inválido' });
+    }
+
+    const profile = await fetchUserProfile(req.user.id, userId);
+
+    if (!profile) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    if (profile.restricted) {
+      return res.status(403).json({ error: 'Não é possível visualizar este perfil' });
+    }
+
+    res.json(profile);
   })
 );
 
