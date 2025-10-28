@@ -3,229 +3,1206 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chatbot Node + MySQL</title>
+    <title>MySQL Cord</title>
     <style>
       :root {
-        color-scheme: light dark;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        --background: #1e1f22;
+        --background-secondary: #2b2d31;
+        --background-tertiary: #313338;
+        --accent: #5865f2;
+        --accent-strong: #4752c4;
+        --text: #f2f3f5;
+        --muted: #b5bac1;
+        --danger: #ed4245;
+        font-family: "Inter", "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
         margin: 0;
-        background: #f2f4f8;
+        background: var(--background);
+        color: var(--text);
         min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
       }
 
-      .chat-container {
-        background: #ffffff;
-        width: min(600px, 95vw);
-        height: min(80vh, 800px);
+      a {
+        color: inherit;
+      }
+
+      button,
+      input,
+      textarea {
+        font-family: inherit;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .auth-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: radial-gradient(circle at top left, #5865f2, transparent 55%),
+          radial-gradient(circle at bottom right, #00b0f4, transparent 55%),
+          var(--background);
+        padding: 20px;
+      }
+
+      .auth-card {
+        background: rgba(49, 51, 56, 0.9);
         border-radius: 16px;
-        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.15);
+        padding: 32px;
+        width: min(400px, 95vw);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        gap: 18px;
       }
 
-      header {
-        background: linear-gradient(120deg, #2563eb, #7c3aed);
-        color: #fff;
-        padding: 20px;
-      }
-
-      header h1 {
+      .auth-card h1 {
         margin: 0;
-        font-size: 1.4rem;
+        font-size: 1.8rem;
+        text-align: center;
       }
 
-      #messages {
+      .tabs {
+        display: flex;
+        gap: 8px;
+        background: var(--background-tertiary);
+        border-radius: 999px;
+        padding: 4px;
+      }
+
+      .tab-button {
         flex: 1;
-        padding: 20px;
-        overflow-y: auto;
+        border: none;
+        border-radius: 999px;
+        padding: 10px 0;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      .tab-button.active {
+        background: var(--accent);
+        color: white;
+      }
+
+      .auth-card form {
         display: flex;
         flex-direction: column;
         gap: 12px;
-        background: #f8fafc;
       }
 
-      .message {
-        max-width: 75%;
-        padding: 12px 16px;
-        border-radius: 14px;
-        line-height: 1.4;
-        box-shadow: 0 5px 15px rgba(15, 23, 42, 0.08);
+      .auth-card label {
+        font-size: 0.9rem;
+        color: var(--muted);
       }
 
-      .message.user {
-        align-self: flex-end;
-        background: #2563eb;
-        color: #fff;
-        border-bottom-right-radius: 4px;
-      }
-
-      .message.bot {
-        align-self: flex-start;
-        background: #fff;
-        color: #0f172a;
-        border-bottom-left-radius: 4px;
-      }
-
-      form {
-        display: flex;
-        gap: 10px;
-        padding: 16px;
-        background: #fff;
-        border-top: 1px solid #e2e8f0;
-      }
-
-      input,
-      button {
-        font-size: 1rem;
-        border-radius: 999px;
-        border: 1px solid #cbd5f5;
-        padding: 12px 16px;
-      }
-
-      input[type="text"] {
-        flex: 1;
-        border: 1px solid #cbd5f5;
-        background: #f1f5f9;
+      .auth-card input {
+        background: var(--background);
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 12px;
+        color: var(--text);
         transition: border 0.2s ease;
       }
 
-      input[type="text"]:focus {
+      .auth-card input:focus {
         outline: none;
-        border-color: #2563eb;
-        background: #fff;
+        border-color: var(--accent);
       }
 
-      button {
-        background: #2563eb;
-        color: #fff;
+      .auth-card button[type='submit'] {
+        margin-top: 8px;
+        background: linear-gradient(135deg, var(--accent), #8b5cf6);
+        border: none;
+        border-radius: 8px;
+        padding: 12px;
+        color: white;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+      }
+
+      .auth-card button[type='submit']:hover {
+        transform: translateY(-1px);
+      }
+
+      #app {
+        display: grid;
+        grid-template-columns: 80px 280px 1fr;
+        grid-template-rows: 100vh;
+        overflow: hidden;
+      }
+
+      .servers-bar {
+        background: var(--background-secondary);
+        display: flex;
+        flex-direction: column;
+        padding: 12px 8px;
+        gap: 12px;
+      }
+
+      .server-button {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: #313338;
+        color: var(--text);
+        font-weight: 600;
         cursor: pointer;
         border: none;
-        transition: transform 0.1s ease, box-shadow 0.1s ease;
+        transition: border-radius 0.2s ease, background 0.2s ease, transform 0.2s ease;
+        position: relative;
       }
 
-      button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+      .server-button.active {
+        border-radius: 16px;
+        background: var(--accent);
       }
 
-      button:disabled {
+      .server-button:hover {
+        transform: translateY(-2px);
+      }
+
+      .server-button .tooltip {
+        position: absolute;
+        left: 62px;
+        background: var(--background-tertiary);
+        color: var(--text);
+        padding: 6px 10px;
+        border-radius: 6px;
+        white-space: nowrap;
+        font-size: 0.85rem;
+        opacity: 0;
+        transform: translateX(-10px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: none;
+      }
+
+      .server-button:hover .tooltip {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      .channels-panel {
+        background: var(--background-tertiary);
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid rgba(0, 0, 0, 0.35);
+      }
+
+      .channels-header {
+        padding: 16px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .channels-header h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      .channels-header button {
+        background: var(--accent);
+        border: none;
+        border-radius: 6px;
+        color: white;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+      }
+
+      .channel-list,
+      .dm-list,
+      .friend-list,
+      .pending-list {
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overflow-y: auto;
+      }
+
+      .section-title {
+        margin: 16px 12px 8px;
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+
+      .channel-item,
+      .dm-item,
+      .friend-item,
+      .invite-item {
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      .channel-item.active,
+      .dm-item.active,
+      .channel-item:hover,
+      .dm-item:hover,
+      .friend-item:hover,
+      .invite-item:hover {
+        background: rgba(88, 101, 242, 0.2);
+        color: var(--text);
+      }
+
+      .chat-area {
+        background: var(--background);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .chat-header {
+        padding: 18px 24px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .chat-header h1 {
+        margin: 0;
+        font-size: 1.2rem;
+      }
+
+      .chat-header p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .invite-code {
+        font-size: 0.85rem;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 6px 10px;
+        border-radius: 8px;
+      }
+
+      .message-feed {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        scroll-behavior: smooth;
+      }
+
+      .message {
+        display: grid;
+        grid-template-columns: 48px 1fr;
+        gap: 12px;
+      }
+
+      .message .avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: var(--background-tertiary);
+        display: grid;
+        place-items: center;
+        font-weight: 600;
+      }
+
+      .message .content {
+        background: var(--background-tertiary);
+        padding: 12px 16px;
+        border-radius: 12px;
+        position: relative;
+      }
+
+      .message .content header {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 6px;
+      }
+
+      .message .author {
+        font-weight: 600;
+      }
+
+      .message .time {
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+
+      .message.deleted .content {
+        opacity: 0.6;
+        font-style: italic;
+      }
+
+      .message-form {
+        padding: 16px 24px;
+        border-top: 1px solid rgba(0, 0, 0, 0.35);
+        display: flex;
+        gap: 12px;
+      }
+
+      .message-form textarea {
+        flex: 1;
+        background: var(--background-tertiary);
+        border: 1px solid transparent;
+        border-radius: 12px;
+        color: var(--text);
+        padding: 12px 16px;
+        resize: none;
+        min-height: 54px;
+        max-height: 180px;
+      }
+
+      .message-form textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+
+      .message-form button {
+        background: var(--accent);
+        border: none;
+        border-radius: 12px;
+        padding: 0 20px;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+
+      .message-form button:disabled {
         opacity: 0.6;
         cursor: not-allowed;
-        box-shadow: none;
+      }
+
+      .friend-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .friend-actions button {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.05);
+        border: none;
+        border-radius: 6px;
+        padding: 6px 0;
+        color: var(--text);
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
+
+      .friend-actions button.accept {
+        background: rgba(88, 101, 242, 0.3);
+      }
+
+      .friend-actions button.decline {
+        background: rgba(237, 66, 69, 0.3);
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .pill-input {
+        display: flex;
+        gap: 8px;
+        padding: 0 12px 16px;
+      }
+
+      .pill-input input {
+        flex: 1;
+        background: var(--background-secondary);
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 10px 16px;
+        color: var(--text);
+      }
+
+      .pill-input button {
+        background: var(--accent);
+        border: none;
+        border-radius: 999px;
+        padding: 10px 18px;
+        color: white;
+        cursor: pointer;
+      }
+
+      @media (max-width: 1024px) {
+        #app {
+          grid-template-columns: 72px 240px 1fr;
+        }
+      }
+
+      @media (max-width: 820px) {
+        #app {
+          grid-template-columns: 72px 1fr;
+        }
+
+        .channels-panel {
+          display: none;
+        }
       }
     </style>
   </head>
   <body>
-    <div class="chat-container">
-      <header>
-        <h1>Chatbot com Node.js & MySQL</h1>
-        <p style="margin: 4px 0 0">Converse e armazene o histórico no banco de dados.</p>
-      </header>
-      <main id="messages"></main>
-      <form id="chat-form">
-        <input
-          type="text"
-          id="author"
-          name="author"
-          placeholder="Seu nome"
-          required
-        />
-        <input
-          type="text"
-          id="message"
-          name="message"
-          placeholder="Escreva sua mensagem"
-          required
-        />
-        <button type="submit">Enviar</button>
-      </form>
+    <div id="auth-view" class="auth-wrapper">
+      <div class="auth-card">
+        <h1>MySQL Cord</h1>
+        <p class="muted" style="text-align: center">
+          Conecte-se, organize servidores, canais e converse em tempo real.
+        </p>
+        <div class="tabs">
+          <button class="tab-button active" data-tab="login">Entrar</button>
+          <button class="tab-button" data-tab="register">Registrar</button>
+        </div>
+        <form id="login-form">
+          <label for="login-identifier">Usuário ou e-mail</label>
+          <input id="login-identifier" name="identifier" type="text" required />
+          <label for="login-password">Senha</label>
+          <input id="login-password" name="password" type="password" required />
+          <button type="submit">Entrar</button>
+        </form>
+        <form id="register-form" class="hidden">
+          <label for="register-username">Usuário</label>
+          <input id="register-username" name="username" type="text" required />
+          <label for="register-email">E-mail</label>
+          <input id="register-email" name="email" type="email" required />
+          <label for="register-password">Senha</label>
+          <input id="register-password" name="password" type="password" required />
+          <button type="submit">Criar conta</button>
+        </form>
+      </div>
     </div>
 
-    <script>
-      const messagesContainer = document.getElementById('messages');
-      const form = document.getElementById('chat-form');
-      const authorInput = document.getElementById('author');
-      const messageInput = document.getElementById('message');
+    <div id="app" class="hidden">
+      <aside class="servers-bar">
+        <button class="server-button" id="create-server-btn" title="Criar servidor">
+          +
+        </button>
+        <div id="server-list" style="display: flex; flex-direction: column; gap: 12px"></div>
+      </aside>
 
-      async function fetchMessages() {
-        try {
-          const response = await fetch('/api/messages');
-          if (!response.ok) {
-            throw new Error('Erro ao buscar mensagens');
-          }
-          const messages = await response.json();
-          renderMessages(messages);
-        } catch (error) {
-          console.error(error);
+      <aside class="channels-panel">
+        <div class="channels-header">
+          <div>
+            <h2 id="active-server-name">Selecione um servidor</h2>
+            <p class="muted" id="active-server-count"></p>
+          </div>
+          <button id="create-channel-btn" title="Criar canal">+</button>
+        </div>
+        <div class="section-title">Canais</div>
+        <div id="channel-list" class="channel-list muted"></div>
+
+        <div class="section-title">Mensagens diretas</div>
+        <div id="dm-list" class="dm-list muted"></div>
+
+        <div class="section-title">Amigos</div>
+        <div id="friend-list" class="friend-list muted"></div>
+
+        <div class="section-title">Convites pendentes</div>
+        <div id="pending-list" class="pending-list muted"></div>
+
+        <form id="friend-request-form" class="pill-input">
+          <input id="friend-username" placeholder="Adicionar amigo pelo usuário" />
+          <button type="submit">Enviar</button>
+        </form>
+      </aside>
+
+      <main class="chat-area">
+        <header class="chat-header">
+          <div>
+            <h1 id="chat-title">Bem-vindo</h1>
+            <p id="chat-topic" class="muted">Selecione um canal ou conversa direta</p>
+          </div>
+          <div id="invite-code" class="invite-code"></div>
+        </header>
+        <section id="message-feed" class="message-feed"></section>
+        <form id="message-form" class="message-form">
+          <textarea id="message-input" placeholder="Envie uma mensagem" disabled></textarea>
+          <button type="submit" disabled>Enviar</button>
+        </form>
+      </main>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const state = {
+        token: null,
+        user: null,
+        servers: [],
+        directConversations: [],
+        friends: { accepted: [], incoming: [], outgoing: [], declined: [] },
+        activeServerId: null,
+        activeChannelId: null,
+        activeConversationId: null,
+        activeView: 'channel',
+        messages: [],
+        socket: null
+      };
+
+      const authView = document.getElementById('auth-view');
+      const appView = document.getElementById('app');
+      const loginForm = document.getElementById('login-form');
+      const registerForm = document.getElementById('register-form');
+      const tabButtons = document.querySelectorAll('.tab-button');
+      const serverList = document.getElementById('server-list');
+      const channelList = document.getElementById('channel-list');
+      const dmList = document.getElementById('dm-list');
+      const friendList = document.getElementById('friend-list');
+      const pendingList = document.getElementById('pending-list');
+      const friendForm = document.getElementById('friend-request-form');
+      const friendInput = document.getElementById('friend-username');
+      const chatTitle = document.getElementById('chat-title');
+      const chatTopic = document.getElementById('chat-topic');
+      const inviteCode = document.getElementById('invite-code');
+      const messageFeed = document.getElementById('message-feed');
+      const messageForm = document.getElementById('message-form');
+      const messageInput = document.getElementById('message-input');
+      const activeServerName = document.getElementById('active-server-name');
+      const activeServerCount = document.getElementById('active-server-count');
+      const createServerBtn = document.getElementById('create-server-btn');
+      const createChannelBtn = document.getElementById('create-channel-btn');
+
+      function saveToken(token) {
+        state.token = token;
+        if (token) {
+          localStorage.setItem('mysqlcord_token', token);
+        } else {
+          localStorage.removeItem('mysqlcord_token');
         }
       }
 
-      function renderMessages(messages) {
-        messagesContainer.innerHTML = '';
-        messages.forEach((message) => {
-          const div = document.createElement('div');
-          div.classList.add('message');
-          const isBot = message.author.toLowerCase() === 'bot';
-          div.classList.add(isBot ? 'bot' : 'user');
-          const time = new Date(message.created_at).toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-          div.innerHTML = `<strong>${message.author}</strong> <small>${time}</small><br />${message.content}`;
-          messagesContainer.appendChild(div);
-        });
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-      }
+      async function api(path, options = {}) {
+        const headers = options.headers ? { ...options.headers } : {};
+        if (state.token) {
+          headers['Authorization'] = `Bearer ${state.token}`;
+        }
+        let body = options.body;
+        if (body && typeof body === 'object' && !(body instanceof FormData)) {
+          headers['Content-Type'] = 'application/json';
+          body = JSON.stringify(body);
+        }
 
-      async function sendMessage(author, content) {
-        const response = await fetch('/api/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ author, content })
+        const response = await fetch(path, {
+          ...options,
+          headers,
+          body
         });
+
+        if (response.status === 204) {
+          return null;
+        }
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (error) {
+          data = null;
+        }
 
         if (!response.ok) {
-          const { error } = await response.json();
-          throw new Error(error || 'Erro ao enviar mensagem');
+          throw new Error((data && data.error) || 'Erro inesperado');
         }
 
-        return response.json();
+        return data;
       }
 
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
+      function setView(isAuthenticated) {
+        if (isAuthenticated) {
+          authView.classList.add('hidden');
+          appView.classList.remove('hidden');
+        } else {
+          authView.classList.remove('hidden');
+          appView.classList.add('hidden');
+        }
+      }
 
-        const author = authorInput.value.trim();
-        const content = messageInput.value.trim();
-        if (!author || !content) {
+      function renderServers() {
+        serverList.innerHTML = '';
+        state.servers.forEach((server) => {
+          const button = document.createElement('button');
+          button.className = 'server-button' + (state.activeServerId === server.id ? ' active' : '');
+          button.innerHTML = `<span>${server.iconUrl ? `<img src="${server.iconUrl}" alt="" style="width: 100%; height: 100%; border-radius: inherit; object-fit: cover" />` : server.name.slice(0, 2).toUpperCase()}</span>`;
+          button.addEventListener('click', () => selectServer(server.id));
+
+          const tooltip = document.createElement('span');
+          tooltip.className = 'tooltip';
+          tooltip.textContent = server.name;
+          button.appendChild(tooltip);
+
+          serverList.appendChild(button);
+        });
+      }
+
+      function renderChannels(server) {
+        channelList.innerHTML = '';
+        if (!server) {
+          channelList.innerHTML = '<p class="muted">Nenhum canal disponível.</p>';
           return;
         }
 
-        form.querySelector('button').disabled = true;
+        server.channels.forEach((channel) => {
+          const div = document.createElement('div');
+          div.className = 'channel-item' + (state.activeChannelId === channel.id && state.activeView === 'channel' ? ' active' : '');
+          div.textContent = `# ${channel.name}`;
+          div.addEventListener('click', () => selectChannel(server.id, channel.id));
+          channelList.appendChild(div);
+        });
+      }
 
-        try {
-          await sendMessage(author, content);
+      function renderDirectMessages() {
+        dmList.innerHTML = '';
+        if (!state.directConversations.length) {
+          dmList.innerHTML = '<p class="muted">Sem conversas.</p>';
+          return;
+        }
+
+        state.directConversations.forEach((conversation) => {
+          const participants = conversation.participants.filter((p) => p.id !== state.user.id);
+          const name = participants.map((p) => p.username).join(', ');
+          const div = document.createElement('div');
+          div.className = 'dm-item' + (state.activeConversationId === conversation.id && state.activeView === 'dm' ? ' active' : '');
+          div.textContent = name || state.user.username;
+          div.addEventListener('click', () => selectConversation(conversation.id));
+          dmList.appendChild(div);
+        });
+      }
+
+      function getFriendFromRequest(request) {
+        return request.requester.id === state.user.id ? request.addressee : request.requester;
+      }
+
+      function renderFriends() {
+        friendList.innerHTML = '';
+        if (!state.friends.accepted.length) {
+          friendList.innerHTML = '<p class="muted">Nenhum amigo conectado.</p>';
+        }
+        state.friends.accepted.forEach((request) => {
+          const friend = getFriendFromRequest(request);
+          const div = document.createElement('div');
+          div.className = 'friend-item';
+          div.textContent = friend.username;
+          div.addEventListener('click', () => startConversation(friend.id));
+          friendList.appendChild(div);
+        });
+
+        pendingList.innerHTML = '';
+        if (!state.friends.incoming.length && !state.friends.outgoing.length) {
+          pendingList.innerHTML = '<p class="muted">Sem convites pendentes.</p>';
+        }
+
+        state.friends.incoming.forEach((request) => {
+          const requester = request.requester;
+          const wrapper = document.createElement('div');
+          wrapper.className = 'invite-item';
+          wrapper.innerHTML = `<span>${requester.username}</span>`;
+          const actions = document.createElement('div');
+          actions.className = 'friend-actions';
+
+          const accept = document.createElement('button');
+          accept.className = 'accept';
+          accept.textContent = 'Aceitar';
+          accept.addEventListener('click', () => respondFriend(request.id, 'accept'));
+
+          const decline = document.createElement('button');
+          decline.className = 'decline';
+          decline.textContent = 'Recusar';
+          decline.addEventListener('click', () => respondFriend(request.id, 'decline'));
+
+          actions.appendChild(accept);
+          actions.appendChild(decline);
+          wrapper.appendChild(actions);
+          pendingList.appendChild(wrapper);
+        });
+
+        state.friends.outgoing.forEach((request) => {
+          const target = request.addressee;
+          const div = document.createElement('div');
+          div.className = 'invite-item';
+          div.textContent = `${target.username} — aguardando`;
+          pendingList.appendChild(div);
+        });
+      }
+
+      function scrollMessagesToBottom() {
+        requestAnimationFrame(() => {
+          messageFeed.scrollTop = messageFeed.scrollHeight;
+        });
+      }
+
+      function renderMessages() {
+        messageFeed.innerHTML = '';
+        if (!state.messages.length) {
+          messageFeed.innerHTML = '<p class="muted">Nenhuma mensagem ainda.</p>';
+          return;
+        }
+
+        state.messages.forEach((message) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'message' + (message.deleted ? ' deleted' : '');
+
+          const avatar = document.createElement('div');
+          avatar.className = 'avatar';
+          avatar.textContent = message.author.username.slice(0, 2).toUpperCase();
+
+          const content = document.createElement('div');
+          content.className = 'content';
+
+          const header = document.createElement('header');
+          const author = document.createElement('span');
+          author.className = 'author';
+          author.textContent = message.author.username;
+
+          const time = document.createElement('span');
+          time.className = 'time';
+          time.textContent = new Date(message.createdAt).toLocaleString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit'
+          });
+
+          header.appendChild(author);
+          header.appendChild(time);
+          content.appendChild(header);
+          content.append(message.deleted ? document.createTextNode('Mensagem apagada') : document.createTextNode(message.content));
+
+          if (message.updatedAt && !message.deleted) {
+            const edited = document.createElement('div');
+            edited.className = 'time';
+            edited.textContent = 'editado';
+            content.appendChild(edited);
+          }
+
+          wrapper.appendChild(avatar);
+          wrapper.appendChild(content);
+          messageFeed.appendChild(wrapper);
+        });
+
+        scrollMessagesToBottom();
+      }
+
+      function resetComposer(enabled) {
+        messageInput.disabled = !enabled;
+        messageForm.querySelector('button').disabled = !enabled;
+        if (!enabled) {
           messageInput.value = '';
-          await fetchMessages();
+        }
+      }
+
+      async function selectServer(serverId) {
+        if (state.activeServerId === serverId) {
+          return;
+        }
+        state.activeServerId = serverId;
+        state.activeConversationId = null;
+        state.activeView = 'channel';
+
+        const server = state.servers.find((item) => item.id === serverId);
+        activeServerName.textContent = server ? server.name : 'Servidor';
+        activeServerCount.textContent = server ? `${server.channels.length} canais` : '';
+        inviteCode.textContent = server ? `Convite: ${server.inviteCode}` : '';
+
+        renderServers();
+        renderChannels(server);
+        renderDirectMessages();
+
+        if (server && server.channels.length) {
+          selectChannel(server.id, server.channels[0].id);
+        } else {
+          state.activeChannelId = null;
+          state.messages = [];
+          renderMessages();
+          resetComposer(false);
+        }
+      }
+
+      async function selectChannel(serverId, channelId) {
+        state.activeServerId = serverId;
+        state.activeChannelId = channelId;
+        state.activeConversationId = null;
+        state.activeView = 'channel';
+
+        const server = state.servers.find((item) => item.id === serverId);
+        const channel = server ? server.channels.find((item) => item.id === channelId) : null;
+
+        chatTitle.textContent = channel ? `# ${channel.name}` : 'Canal';
+        chatTopic.textContent = channel && channel.topic ? channel.topic : 'Converse com sua comunidade';
+        inviteCode.textContent = server ? `Convite: ${server.inviteCode}` : '';
+
+        renderServers();
+        renderChannels(server);
+        renderDirectMessages();
+
+        resetComposer(true);
+        messageInput.placeholder = `Mensagem em #${channel ? channel.name : 'canal'}`;
+
+        if (state.socket) {
+          state.socket.emit('joinChannel', { channelId });
+        }
+
+        const messages = await api(`/api/channels/${channelId}/messages`);
+        state.messages = messages;
+        renderMessages();
+      }
+
+      async function selectConversation(conversationId) {
+        state.activeConversationId = conversationId;
+        state.activeChannelId = null;
+        state.activeView = 'dm';
+
+        const conversation = state.directConversations.find((item) => item.id === conversationId);
+        const participants = conversation ? conversation.participants.filter((p) => p.id !== state.user.id) : [];
+        const title = participants.length ? participants.map((p) => p.username).join(', ') : state.user.username;
+
+        chatTitle.textContent = title;
+        chatTopic.textContent = 'Conversa direta';
+        inviteCode.textContent = '';
+
+        renderServers();
+        renderChannels(state.servers.find((item) => item.id === state.activeServerId));
+        renderDirectMessages();
+
+        resetComposer(true);
+        messageInput.placeholder = `Mensagem para ${title}`;
+
+        if (state.socket) {
+          state.socket.emit('joinDm', { conversationId });
+        }
+
+        const messages = await api(`/api/dms/${conversationId}/messages`);
+        state.messages = messages;
+        renderMessages();
+      }
+
+      async function loadContext() {
+        const context = await api('/api/auth/me');
+        state.user = context.user;
+        state.servers = context.servers;
+        state.directConversations = context.directConversations;
+        state.friends = context.friends;
+        setView(true);
+        renderServers();
+        renderChannels(state.servers.find((item) => item.id === state.activeServerId));
+        renderDirectMessages();
+        renderFriends();
+        connectSocket();
+      }
+
+      function connectSocket() {
+        if (!state.token) {
+          return;
+        }
+        if (state.socket) {
+          state.socket.disconnect();
+        }
+        state.socket = io({ auth: { token: state.token } });
+
+        state.socket.on('channel:message', (message) => {
+          if (state.activeView === 'channel' && state.activeChannelId === message.channelId) {
+            state.messages.push(message);
+            renderMessages();
+          }
+        });
+
+        state.socket.on('channel:message:update', (message) => {
+          if (state.activeView === 'channel' && state.activeChannelId === message.channelId) {
+            const index = state.messages.findIndex((item) => item.id === message.id);
+            if (index !== -1) {
+              state.messages[index] = message;
+              renderMessages();
+            }
+          }
+        });
+
+        state.socket.on('channel:message:deleted', ({ id, channelId }) => {
+          if (state.activeView === 'channel' && state.activeChannelId === channelId) {
+            const message = state.messages.find((item) => item.id === id);
+            if (message) {
+              message.deleted = true;
+              renderMessages();
+            }
+          }
+        });
+
+        state.socket.on('dm:message', (message) => {
+          if (state.activeView === 'dm' && state.activeConversationId === message.conversationId) {
+            state.messages.push(message);
+            renderMessages();
+          }
+        });
+
+        state.socket.on('dm:message:update', (message) => {
+          if (state.activeView === 'dm' && state.activeConversationId === message.conversationId) {
+            const index = state.messages.findIndex((item) => item.id === message.id);
+            if (index !== -1) {
+              state.messages[index] = message;
+              renderMessages();
+            }
+          }
+        });
+
+        state.socket.on('dm:message:deleted', ({ id, conversationId }) => {
+          if (state.activeView === 'dm' && state.activeConversationId === conversationId) {
+            const message = state.messages.find((item) => item.id === id);
+            if (message) {
+              message.deleted = true;
+              renderMessages();
+            }
+          }
+        });
+
+        state.socket.on('servers:created', (server) => {
+          const exists = state.servers.some((item) => item.id === server.id);
+          if (!exists) {
+            state.servers.push(server);
+          }
+          renderServers();
+          if (!state.activeServerId) {
+            selectServer(server.id);
+          }
+        });
+
+        state.socket.on('servers:joined', (server) => {
+          const exists = state.servers.some((item) => item.id === server.id);
+          if (!exists) {
+            state.servers.push(server);
+            renderServers();
+          }
+        });
+
+        state.socket.on('channels:created', (channel) => {
+          const server = state.servers.find((item) => item.id === channel.serverId);
+          if (server) {
+            const exists = server.channels.some((item) => item.id === channel.id);
+            if (!exists) {
+              server.channels.push(channel);
+            }
+            if (state.activeServerId === channel.serverId) {
+              renderChannels(server);
+            }
+          }
+        });
+
+        state.socket.on('friends:request', () => {
+          refreshFriends();
+        });
+
+        state.socket.on('friends:updated', () => {
+          refreshFriends();
+        });
+
+        state.socket.on('dms:created', (conversation) => {
+          const exists = state.directConversations.some((item) => item.id === conversation.id);
+          if (!exists) {
+            state.directConversations.push(conversation);
+            renderDirectMessages();
+          }
+        });
+      }
+
+      async function refreshFriends() {
+        const friends = await api('/api/friends');
+        state.friends = friends;
+        renderFriends();
+      }
+
+      async function startConversation(userId) {
+        try {
+          const conversation = await api('/api/dms', {
+            method: 'POST',
+            body: { userId }
+          });
+          const exists = state.directConversations.some((item) => item.id === conversation.id);
+          if (!exists) {
+            state.directConversations.push(conversation);
+          }
+          renderDirectMessages();
+          selectConversation(conversation.id);
         } catch (error) {
           alert(error.message);
-        } finally {
-          form.querySelector('button').disabled = false;
-          messageInput.focus();
+        }
+      }
+
+      async function respondFriend(requestId, action) {
+        try {
+          await api(`/api/friends/requests/${requestId}/respond`, {
+            method: 'POST',
+            body: { action }
+          });
+          await refreshFriends();
+        } catch (error) {
+          alert(error.message);
+        }
+      }
+
+      loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formData = new FormData(loginForm);
+        try {
+          const data = await api('/api/auth/login', {
+            method: 'POST',
+            body: Object.fromEntries(formData.entries())
+          });
+          saveToken(data.token);
+          await loadContext();
+        } catch (error) {
+          alert(error.message);
         }
       });
 
-      fetchMessages();
-      setInterval(fetchMessages, 5000);
+      registerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formData = new FormData(registerForm);
+        try {
+          const data = await api('/api/auth/register', {
+            method: 'POST',
+            body: Object.fromEntries(formData.entries())
+          });
+          saveToken(data.token);
+          await loadContext();
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+
+      tabButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          tabButtons.forEach((btn) => btn.classList.remove('active'));
+          button.classList.add('active');
+          const tab = button.dataset.tab;
+          if (tab === 'login') {
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+          } else {
+            loginForm.classList.add('hidden');
+            registerForm.classList.remove('hidden');
+          }
+        });
+      });
+
+      messageForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const content = messageInput.value.trim();
+        if (!content) {
+          return;
+        }
+
+        try {
+          if (state.activeView === 'channel' && state.activeChannelId) {
+            await api(`/api/channels/${state.activeChannelId}/messages`, {
+              method: 'POST',
+              body: { content }
+            });
+          } else if (state.activeView === 'dm' && state.activeConversationId) {
+            await api(`/api/dms/${state.activeConversationId}/messages`, {
+              method: 'POST',
+              body: { content }
+            });
+          }
+          messageInput.value = '';
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+
+      friendForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const username = friendInput.value.trim();
+        if (!username) {
+          return;
+        }
+        try {
+          await api('/api/friends/requests', {
+            method: 'POST',
+            body: { username }
+          });
+          friendInput.value = '';
+          await refreshFriends();
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+
+      createServerBtn.addEventListener('click', async () => {
+        const name = prompt('Nome do servidor:');
+        if (!name) return;
+        const iconUrl = prompt('URL do ícone (opcional):') || undefined;
+        try {
+          const server = await api('/api/servers', {
+            method: 'POST',
+            body: { name, iconUrl }
+          });
+          state.servers.push(server);
+          renderServers();
+          selectServer(server.id);
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+
+      createChannelBtn.addEventListener('click', async () => {
+        if (!state.activeServerId) {
+          alert('Selecione um servidor primeiro.');
+          return;
+        }
+        const name = prompt('Nome do novo canal:');
+        if (!name) return;
+        try {
+          const channel = await api(`/api/servers/${state.activeServerId}/channels`, {
+            method: 'POST',
+            body: { name }
+          });
+          const server = state.servers.find((item) => item.id === state.activeServerId);
+          if (server) {
+            server.channels.push(channel);
+            renderChannels(server);
+            selectChannel(server.id, channel.id);
+          }
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+
+      async function bootstrap() {
+        const storedToken = localStorage.getItem('mysqlcord_token');
+        if (storedToken) {
+          saveToken(storedToken);
+          try {
+            await loadContext();
+          } catch (error) {
+            console.error(error);
+            saveToken(null);
+            setView(false);
+          }
+        } else {
+          setView(false);
+        }
+      }
+
+      bootstrap();
     </script>
   </body>
 </html>
