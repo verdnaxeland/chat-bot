@@ -174,24 +174,49 @@ async function fetchServersForUser(userId, { includeChannels = false } = {}) {
 
 async function fetchDirectConversations(userId) {
   const pool = await poolPromise;
-  const [rows] = await pool.execute(
-    `SELECT dc.id, dc.created_at,
-            JSON_ARRAYAGG(JSON_OBJECT('id', u.id, 'username', u.username, 'avatarUrl', u.avatar_url)) AS participants
+
+  // Passo 1: buscar conversas do usuário
+  const [conversationRows] = await pool.execute(
+    `SELECT dc.id, dc.created_at
      FROM direct_conversations dc
-     INNER JOIN direct_participants dp ON dp.conversation_id = dc.id
-     INNER JOIN users u ON u.id = dp.user_id
      WHERE dc.id IN (
        SELECT conversation_id FROM direct_participants WHERE user_id = ?
      )
-     GROUP BY dc.id
      ORDER BY dc.created_at DESC`,
     [userId]
   );
 
-  return rows.map((row) => ({
+  if (conversationRows.length === 0) {
+    return [];
+  }
+
+  // Passo 2: buscar participantes de todas as conversas
+  const conversationIds = conversationRows.map((row) => row.id);
+  const placeholders = conversationIds.map(() => '?').join(',');
+  const [participantRows] = await pool.query(
+    `SELECT dp.conversation_id, u.id, u.username, u.avatar_url
+     FROM direct_participants dp
+     INNER JOIN users u ON u.id = dp.user_id
+     WHERE dp.conversation_id IN (${placeholders})
+     ORDER BY dp.conversation_id ASC, u.username ASC`,
+    conversationIds
+  );
+
+  const participantsByConversation = new Map();
+  participantRows.forEach((row) => {
+    const list = participantsByConversation.get(row.conversation_id) || [];
+    list.push({
+      id: row.id,
+      username: row.username,
+      avatarUrl: row.avatar_url
+    });
+    participantsByConversation.set(row.conversation_id, list);
+  });
+
+  return conversationRows.map((row) => ({
     id: row.id,
     createdAt: row.created_at,
-    participants: JSON.parse(row.participants)
+    participants: participantsByConversation.get(row.id) || []
   }));
 }
 
@@ -693,7 +718,6 @@ app.patch(
     const { content } = req.body;
 
     const access = await ensureChannelAccess(req.user.id, channelId);
-
     if (!access) {
       return res.status(403).json({ error: 'Acesso negado a este canal' });
     }
@@ -726,7 +750,6 @@ app.delete(
     const messageId = Number(req.params.messageId);
 
     const access = await ensureChannelAccess(req.user.id, channelId);
-
     if (!access) {
       return res.status(403).json({ error: 'Acesso negado a este canal' });
     }
@@ -970,7 +993,9 @@ app.post(
   handleValidationErrors,
   asyncHandler(async (req, res) => {
     const conversationId = Number(req.params.conversationId);
-    const { content } = req.body;
+    theContent = req.body.content; // prevent shadowing in some bundlers? still ok
+    const { content } = { content: theContent };
+
     const membership = await ensureConversationMember(req.user.id, conversationId);
 
     if (!membership) {
@@ -1107,9 +1132,7 @@ io.on('connection', async (socket) => {
   }
 
   socket.on('joinChannel', async ({ channelId }) => {
-    if (!channelId) {
-      return;
-    }
+    if (!channelId) return;
     const access = await ensureChannelAccess(socket.user.id, Number(channelId));
     if (access) {
       socket.join(`channel:${channelId}`);
@@ -1117,16 +1140,12 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('leaveChannel', ({ channelId }) => {
-    if (!channelId) {
-      return;
-    }
+    if (!channelId) return;
     socket.leave(`channel:${channelId}`);
   });
 
   socket.on('joinDm', async ({ conversationId }) => {
-    if (!conversationId) {
-      return;
-    }
+    if (!conversationId) return;
     const membership = await ensureConversationMember(socket.user.id, Number(conversationId));
     if (membership) {
       socket.join(`dm:${conversationId}`);
@@ -1134,9 +1153,7 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('leaveDm', ({ conversationId }) => {
-    if (!conversationId) {
-      return;
-    }
+    if (!conversationId) return;
     socket.leave(`dm:${conversationId}`);
   });
 });
